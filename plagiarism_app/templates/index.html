@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PlagiSure | String Matching</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+            min-height: 100vh;
+        }
+        .card {
+            border-radius: 15px;
+        }
+        textarea {
+            resize: none;
+        }
+        .badge-custom {
+            background-color: #6f42c1;
+            color: #fff;
+        }
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+
+            <!-- HEADER -->
+            <div class="text-center text-white mb-4">
+                <h1 class="fw-bold">PlagiSure</h1>
+                <p class="lead">String Matching & Similarity Detection System</p>
+            </div>
+
+            <!-- INPUT CARD -->
+            <div class="card shadow-lg mb-4">
+                <div class="card-body p-4">
+
+                    <h4 class="mb-3 text-primary">Input Section</h4>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Text / Document</label>
+                            <textarea class="form-control" id="text" name="text1" rows="4" required>{{ text }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Pattern / Second Text</label>
+                            <textarea class="form-control" id="pattern" name="text2" rows="3" required>{{ pattern }}</textarea>
+                        </div>
+
+                        <div class="mb-3" id="moduloBox" style="display:none;">
+                            <label class="form-label fw-semibold">Modulo value (q)</label>
+                            <input type="number" class="form-control" id="modulo" name="modulo">
+                        </div>
+                        <div class="mb-3" id="hashModeBox" style="display:none;">
+                            <label class="form-label fw-semibold">Hash Method</label>
+                            <select class="form-select" name="hash_mode" id="hash_mode">
+                                <option value="mod">Modulo</option>
+                                <option value="add">Addition</option>
+                            </select>
+                        </div>
+
+                        <!-- Alphabet Values -->
+                        <div class="mb-3" id="charMapBox" style="display:none;">
+                            <label class="form-label fw-semibold">
+                                Alphabet Values (example: a=1,b=2,c=3,d=4)
+                            </label>
+                            <input type="text" class="form-control" name="char_values">
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Select Algorithm</label>
+                            <select class="form-select" name="algorithm" onchange="clearInputs()">
+                                <option value="kmp" {% if algorithm == "KMP" %}selected{% endif %}>KMP</option>
+                                <option value="rabin" {% if algorithm == "RABIN" %}selected{% endif %}>Rabin-Karp</option>
+                                <option value="lcs" {% if algorithm == "LCS" %}selected{% endif %}>LCS</option>
+                            </select>
+                        </div>
+                        
+                        <button class="btn btn-primary w-100 fw-bold">Analyze Text</button>
+                    </form>
+                </div>
+            </div>
+
+           <!-- OUTPUT CARD -->
+{% if algorithm %}
+<div class="card shadow-lg">
+    <div class="card-body p-4">
+
+        <h4 class="mb-3 text-success">Analysis Result</h4>
+
+        <p><span class="badge badge-custom">Text</span></p>
+        <div class="result-box">{{ text }}</div>
+
+        <p class="mt-3"><span class="badge badge-custom">Pattern</span></p>
+        <div class="result-box">{{ pattern }}</div>
+
+        <hr>
+
+        <p><b>Algorithm Used:</b> {{ algorithm }}</p>
+
+        {% if algorithm == "KMP" %}
+
+        <h5 class="mt-4 text-primary">Prefix–Suffix (LPS) Table</h5>
+        <table class="table table-bordered text-center">
+            <thead class="table-dark">
+                <tr>
+                    <th>Index</th>
+                    <th>Pattern</th>
+                    <th>Prefix</th>
+                    <th>Suffix</th>
+                    <th>LPS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in lps_table %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ row.pattern }}</td>
+                    <td>{{ row.prefix }}</td>
+                    <td>{{ row.suffix }}</td>
+                    <td>{{ row.lps }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5 class="mt-4 text-primary">KMP Step-by-Step Trace</h5>
+        <table class="table table-bordered text-center">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Step</th>
+                    <th>Text Index</th>
+                    <th>Text Char</th>
+                    <th>Pattern Index</th>
+                    <th>Pattern Char</th>
+                    <th>Action</th>
+                    <th>Jump / Movement</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in comparisons %}
+                <tr class="{% if 'MATCH' in c.action %}table-success{% elif 'Mismatch' in c.action %}table-danger{% else %}table-warning{% endif %}">
+                    <td>{{ c.step }}</td>
+                    <td>T[{{ c.t_index }}]</td>
+                    <td>{{ c.t_char }}</td>
+                    <td>P[{{ c.p_index }}]</td>
+                    <td>{{ c.p_char }}</td>
+                    <td>{{ c.action }}</td>
+                    <td>{{ c.jump }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p class="mt-3"><b>Pattern Found At Index:</b></p>
+        {% if matches %}
+            {% for m in matches %}
+                <span class="badge bg-success">{{ m }}</span>
+            {% endfor %}
+        {% else %}
+            <span class="text-danger">No Match Found</span>
+        {% endif %}
+
+        <!-- ADDITIONAL INFO -->
+        <div class="mt-3">
+            <p><b>Complexity:</b> {{ complexity }}</p>
+            {% if time %}
+                <p><b>Time Taken:</b> {{ time }} seconds</p>
+            {% endif %}
+            {% if similarity %}
+                <p><b>Similarity:</b> {{ similarity }}</p>
+            {% endif %}
+        </div>
+
+        {% endif %}
+
+        {% if algorithm == "RABIN" %}
+
+        <h5 class="mt-4 text-primary">Rabin–Karp Sliding Window Trace</h5>
+
+        <div class="mb-3">
+            <span class="badge bg-dark">Pattern Hash:</span>
+            <span class="badge bg-success">{{ pattern_hash }}</span>
+        </div>
+
+        <table class="table table-bordered text-center align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Shift</th>
+                    <th>Window</th>
+                    <th>Hash Calculation</th>
+                    <th>Window Hash</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in rk_steps %}
+                <tr class="
+                    {% if s.result == 'Valid Hit' %}table-success
+                    {% elif s.result == 'Spurious Hit' %}table-warning
+                    {% else %}table-light{% endif %}">
+                    <td>{{ s.index }}</td>
+                    <td><b>{{ s.window }}</b></td>
+                    <td>{{ s.hash_calc }}</td>
+                    <td>{{ s.window_hash }}</td>
+                    <td>{{ s.result }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h6 class="mt-3">Matches Found At:</h6>
+        {% if valid_hits %}
+            {% for i in valid_hits %}
+                <span class="badge bg-success">{{ i }}</span>
+            {% endfor %}
+        {% else %}
+            <span class="text-danger">No Match Found</span>
+        {% endif %}
+
+        <p class="mt-2"><b>Spurious Hits:</b> {{ spurious_hits }}</p>
+
+        <!-- ADDITIONAL INFO -->
+        <div class="mt-3">
+            <p><b>Complexity:</b> {{ complexity }}</p>
+            {% if time %}
+                <p><b>Time Taken:</b> {{ time }} seconds</p>
+            {% endif %}
+            {% if similarity %}
+                <p><b>Similarity:</b> {{ similarity }}</p>
+            {% endif %}
+        </div>
+
+        {% endif %}
+
+        {% if algorithm == "LCS" %}
+
+        <!-- LCS TABLES & RESULTS (unchanged) -->
+        <h4 class="mt-4 text-primary">DP Table (LEFT Priority)</h4>
+        <table class="table table-bordered table-sm text-center align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Ø</th>
+                    <th>Ø</th>
+                    {% for ch in pattern %}
+                        <th>{{ ch }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in left_table %}
+                <tr>
+                    <th class="fw-bold">
+                        {% if forloop.first %}Ø{% else %}{{ text|slice:forloop.counter0|last }}{% endif %}
+                    </th>
+                    {% for cell in row %}
+                    <td><b>{{ cell.value }}</b><br><small>{{ cell.arrow }}</small></td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h4 class="mt-4 text-primary">DP Table (UP Priority)</h4>
+        <table class="table table-bordered table-sm text-center align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Ø</th>
+                    <th>Ø</th>
+                    {% for ch in pattern %}
+                        <th>{{ ch }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in up_table %}
+                <tr>
+                    <th class="fw-bold">
+                        {% if forloop.first %}Ø{% else %}{{ text|slice:forloop.counter0|last }}{% endif %}
+                    </th>
+                    {% for cell in row %}
+                    <td><b>{{ cell.value }}</b><br><small>{{ cell.arrow }}</small></td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p><b>LCS (LEFT preference):</b> {{ lcs_left }}</p>
+        <p><b>LCS (UP preference):</b> {{ lcs_up }}</p>
+        <p><b>LCS Length:</b> {{ lcs_length }}</p>
+        <p><b>Similarity:</b> {{ similarity }}</p>
+
+        <!-- ADDITIONAL INFO -->
+        <div class="mt-3">
+            <p><b>Complexity:</b> {{ complexity }}</p>
+            {% if time %}
+                <p><b>Time Taken:</b> {{ time }} seconds</p>
+            {% endif %}
+        </div>
+
+        {% endif %}
+
+    </div>
+</div>
+{% endif %}
+
+           
+        </div>
+    </div>
+</div>
+<script>
+function updateInputs() {
+    const algo = document.querySelector('select[name="algorithm"]').value;
+    const hashMode = document.getElementById("hash_mode")?.value;
+
+    const moduloBox = document.getElementById("moduloBox");
+    const hashModeBox = document.getElementById("hashModeBox");
+    const charMapBox = document.getElementById("charMapBox");
+
+    // Default: hide everything
+    moduloBox.style.display = "none";
+    hashModeBox.style.display = "none";
+    charMapBox.style.display = "none";
+
+    // Only Rabin uses hashing
+    if (algo === "rabin") {
+        hashModeBox.style.display = "block";
+
+        if (hashMode === "mod") {
+            moduloBox.style.display = "block";
+        }
+
+        if (hashMode === "add" || hashMode === "mul") {
+            charMapBox.style.display = "block";
+        }
+    }
+}
+
+// Clear text only when algorithm changes
+function clearInputs() {
+    document.getElementById("text").value = "";
+    document.getElementById("pattern").value = "";
+    updateInputs();
+}
+
+// Run when hash mode changes
+document.getElementById("hash_mode")?.addEventListener("change", updateInputs);
+
+// Run on page load (important for POST reload)
+window.onload = updateInputs;
+</script>
+
+</body>
+</html>
